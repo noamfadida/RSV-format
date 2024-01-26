@@ -7,6 +7,8 @@ pub mod rsv_format {
         use std::fs;
         use std::path::Path;
 
+        use serde_json::{Value, Error};
+
         use super::{EOR, EOV, NULL};
 
         fn convert_vec_to_rsv(table_data: Vec<Vec<Option<String>>>) -> Vec<u8> {
@@ -35,6 +37,14 @@ pub mod rsv_format {
             fs::write(output_path, binary_table_encoding)
         }
 
+        pub fn from_json(
+            json_path: &Path,
+            output_path: &Path
+        ) -> Result<(), std::io::Error> {
+            let json_content = fs::read_to_string(json_path)?;
+            let table_data: Vec<Vec<Option<String>>> = serde_json::from_str(json_content.as_str())?;
+            from_vec(table_data, output_path)
+        }
     }
 }
 
@@ -69,6 +79,42 @@ mod tests {
             vec![
                 b'A', EOV, b'B', EOV, b'H', b'e', b'l', b'l', b'o', EOV, b'W', b'o', b'r', b'd',
                 EOV, EOR, EOR, b'C', EOV, NULL, EOV, b'D', EOV, EOR
+            ]
+        );
+    }
+
+    #[test]
+    fn test_from_json1() {
+        let json_path = Path::new("src/from_json_test1.json");
+        let output_path = Path::new("src/from_json_test1.rsv");
+        let result = rsv_writer::from_json(json_path, output_path);
+
+        assert!(result.is_ok());
+
+        // Check if the file was created and contains the expected content
+        let file_content = fs::read(output_path).expect("Failed to read file");
+        assert_eq!(
+            file_content,
+            vec![
+                72, 101, 108, 108, 111, 255, 240, 159, 140, 142, 255, 253
+            ]
+        );
+    }
+
+    #[test]
+    fn test_from_json2() {
+        let json_path = Path::new("src/from_json_test2.json");
+        let output_path = Path::new("src/from_json_test2.rsv");
+        let result = rsv_writer::from_json(json_path, output_path);
+
+        assert!(result.is_ok());
+
+        // Check if the file was created and contains the expected content
+        let file_content = fs::read(output_path).expect("Failed to read file");
+        assert_eq!(
+            file_content,
+            vec![
+                72, 101, 108, 108, 111, 255, 240, 159, 140, 142, 255, 253, 253, 254, 255, 255, 253
             ]
         );
     }
