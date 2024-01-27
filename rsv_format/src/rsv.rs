@@ -46,6 +46,50 @@ pub mod rsv_format {
             from_vec(table_data, output_path)
         }
     }
+    pub mod rsv_reader {
+        use std::fs;
+        use std::path::Path;
+
+        use super::{EOR, EOV, NULL};
+
+        pub fn to_vec(rsv_path: &Path) -> Result<Vec<Vec<Option<String>>>, std::io::Error> {
+            let rsv_content = fs::read(rsv_path)?;
+            let mut rsv_table: Vec<Vec<Option<String>>> = Vec::new();
+            let mut rsv_row: Vec<Option<String>> = Vec::new();
+            let mut curr_bytes_sequence: Vec<u8> = Vec::new();
+            let mut last_is_null = false;
+            for byte in rsv_content {
+                match byte {
+                    EOV => {
+                        if last_is_null{
+                            last_is_null = false;
+                            continue;
+                        }
+                        rsv_row.push(Some(
+                            String::from_utf8(curr_bytes_sequence.clone()).map_err(|e| {
+                                std::io::Error::new(std::io::ErrorKind::InvalidData, e)
+                            })?,
+                        ));
+                        curr_bytes_sequence.clear();
+                    }
+                    EOR => {
+                        rsv_table.push(rsv_row.clone());
+                        rsv_row.clear();
+                    }
+                    NULL => {
+                        last_is_null = true;
+                        rsv_row.push(None);
+                    }
+                    _ => {
+                        curr_bytes_sequence.push(byte);
+                    }
+                }
+            }
+
+            Ok(rsv_table)
+        }
+
+    }
 }
 
 #[cfg(test)]
@@ -118,4 +162,22 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn test_to_vec() {
+        let rsv_path = Path::new("src/to_vec_test.rsv");
+        let result = rsv_reader::to_vec(rsv_path);
+
+        assert!(result.is_ok());
+
+        assert_eq!(
+            result.unwrap(),
+            vec![
+                vec![Some(String::from("Hello")), Some(String::from("🌎"))],
+                vec![],
+                vec![None, Some(String::from(""))]
+            ]
+        );
+    }
+
 }
