@@ -7,7 +7,7 @@ pub mod rsv_format {
         use std::fs;
         use std::path::Path;
 
-        use serde_json::{Value, Error};
+        use serde_json::{Error, Value};
 
         use super::{EOR, EOV, NULL};
 
@@ -37,10 +37,7 @@ pub mod rsv_format {
             fs::write(output_path, binary_table_encoding)
         }
 
-        pub fn from_json(
-            json_path: &Path,
-            output_path: &Path
-        ) -> Result<(), std::io::Error> {
+        pub fn from_json(json_path: &Path, output_path: &Path) -> Result<(), std::io::Error> {
             let json_content = fs::read_to_string(json_path)?;
             let table_data: Vec<Vec<Option<String>>> = serde_json::from_str(json_content.as_str())?;
             from_vec(table_data, output_path)
@@ -61,7 +58,7 @@ pub mod rsv_format {
             for byte in rsv_content {
                 match byte {
                     EOV => {
-                        if last_is_null{
+                        if last_is_null {
                             last_is_null = false;
                             continue;
                         }
@@ -89,6 +86,11 @@ pub mod rsv_format {
             Ok(rsv_table)
         }
 
+        pub fn to_json(rsv_path: &Path, json_path: &Path) -> Result<(), std::io::Error> {
+            let rsv_table = to_vec(rsv_path)?;
+            let json_string = serde_json::to_string(&rsv_table).expect("Failed to serialize to JSON");
+            fs::write(json_path, json_string.as_bytes())
+        }
     }
 }
 
@@ -139,9 +141,7 @@ mod tests {
         let file_content = fs::read(output_path).expect("Failed to read file");
         assert_eq!(
             file_content,
-            vec![
-                72, 101, 108, 108, 111, 255, 240, 159, 140, 142, 255, 253
-            ]
+            vec![72, 101, 108, 108, 111, 255, 240, 159, 140, 142, 255, 253]
         );
     }
 
@@ -180,4 +180,12 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_to_json() {
+        let rsv_path = Path::new("src/to_vec_test.rsv");
+        let json_path = Path::new("src/to_json_test.json");
+        let result = rsv_reader::to_json(rsv_path, json_path);
+
+        assert!(result.is_ok());
+    }
 }
